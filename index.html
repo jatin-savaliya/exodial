@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ExoDial">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>ExoDial</title>
+<style>
+  :root {
+    --bg:#ffffff; --card:#ffffff; --fill:#e9e9ee; --fill2:#f2f2f7; --grouped:#f2f2f7;
+    --label:#000; --label2:#8a8a8e; --sep:rgba(60,60,67,.18);
+    --blue:#007aff; --green:#34c759; --red:#ff3b30;
+    --av1:#a9a8b9; --av2:#86859a;
+    --bar:rgba(255,255,255,.78); --glass:rgba(250,250,252,.72); --glassline:rgba(0,0,0,.07);
+    --hero1:#d3d1df; --hero2:#f2f2f7; --heroCard:rgba(255,255,255,.75); --heroBtn:rgba(255,255,255,.8); --heroBtnFg:#000;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#000; --card:#1c1c1e; --fill:#2c2c2e; --fill2:#1c1c1e; --grouped:#000;
+      --label:#fff; --label2:#98989f; --sep:rgba(84,84,88,.55);
+      --blue:#0a84ff; --green:#30d158; --red:#ff453a;
+      --av1:#5d5a7c; --av2:#38354c;
+      --bar:rgba(18,18,20,.78); --glass:rgba(30,30,32,.72); --glassline:rgba(255,255,255,.08);
+      --hero1:#57536d; --hero2:#16141f; --heroCard:rgba(255,255,255,.08); --heroBtn:rgba(255,255,255,.14); --heroBtnFg:#fff;
+    }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; background:var(--bg); color:var(--label); }
+  body { font:17px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none; }
+  button { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+  input { font:inherit; color:var(--label); }
+  svg { display:block; }
+  .hidden { display:none !important; }
+
+  /* ---------- page + sticky nav ---------- */
+  .page { min-height:100dvh; padding-bottom:calc(env(safe-area-inset-bottom) + 120px); }
+  .nav { position:sticky; top:0; z-index:10; padding-top:env(safe-area-inset-top); transition:background .2s, border-color .2s; border-bottom:.5px solid transparent; }
+  .nav.scrolled { background:var(--bar); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border-bottom-color:var(--sep); }
+  .navrow { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:0 16px; height:56px; }
+  .navrow > :first-child { justify-self:start; } .navrow > :last-child { justify-self:end; }
+  .navtitle { font-weight:600; font-size:17px; opacity:0; transition:opacity .2s; white-space:nowrap; }
+  .nav.scrolled .navtitle, .navtitle.always { opacity:1; }
+  .circle-btn { width:44px; height:44px; border-radius:50%; background:var(--fill); display:flex; align-items:center; justify-content:center; }
+  .circle-btn svg { width:20px; height:20px; }
+  .large-title { font-size:34px; font-weight:700; letter-spacing:.3px; padding:2px 20px 10px; margin:0; }
+  .search { margin:0 16px 8px; height:40px; border-radius:20px; background:var(--fill); display:flex; align-items:center; gap:8px; padding:0 14px; }
+  .search svg { width:18px; height:18px; color:var(--label2); flex:none; }
+  .search input { flex:1; background:none; border:0; outline:none; font-size:17px; height:100%; min-width:0; }
+  .search input::placeholder { color:var(--label2); }
+  .seg { display:flex; background:var(--fill); border-radius:22px; padding:3px; height:44px; }
+  .seg button { padding:0 22px; border-radius:19px; font-size:17px; }
+  .seg button.on { background:var(--bg); box-shadow:0 1px 3px rgba(0,0,0,.12); }
+  @media (prefers-color-scheme: dark) { .seg button.on { background:#48484a; } }
+
+  /* ---------- lists ---------- */
+  .avatar { width:46px; height:46px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:600; font-size:18px; background:linear-gradient(180deg,var(--av1),var(--av2)); letter-spacing:.5px; }
+  .avatar svg { width:30px; height:30px; margin-top:8px; opacity:.95; }
+  .row { display:flex; align-items:center; gap:12px; padding:0 16px; min-height:64px; cursor:pointer; }
+  .row .body { flex:1; min-width:0; display:flex; align-items:center; gap:10px; align-self:stretch; border-bottom:.5px solid var(--sep); padding:9px 0; }
+  .row:last-child .body { border-bottom:0; }
+  .row .txt { flex:1; min-width:0; }
+  .row .t1 { font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .t1 b { font-weight:600; }
+  .row .t2 { font-size:15px; color:var(--label2); display:flex; align-items:center; gap:5px; white-space:nowrap; overflow:hidden; }
+  .row .t2 svg { width:14px; height:14px; flex:none; }
+  .row .t2 .rec { width:13px; height:13px; color:var(--label2); }
+  .row.missed .t1 { color:var(--red); }
+  .row .time { color:var(--label2); font-size:15px; flex:none; }
+  .row:active { background:var(--fill2); }
+  .info-btn { width:40px; height:40px; border-radius:50%; background:var(--fill2); display:flex; align-items:center; justify-content:center; color:var(--blue); flex:none; }
+  @media (prefers-color-scheme: light) { .info-btn { background:var(--fill2); } }
+  .info-btn svg { width:22px; height:22px; }
+  .call-btn { width:40px; height:40px; border-radius:50%; background:var(--fill); display:flex; align-items:center; justify-content:center; color:var(--green); flex:none; }
+  .call-btn svg { width:18px; height:18px; }
+  .call-btn:disabled { opacity:.4; }
+  .section-h { position:sticky; top:calc(env(safe-area-inset-top) + 56px); z-index:2; background:var(--bg); color:var(--label2); font-size:15px; font-weight:600; padding:12px 20px 6px; }
+  #conList .row { padding-right:28px; }
+  #conList .section-h { top:calc(env(safe-area-inset-top) + 104px); }
+  .mycard { display:flex; align-items:center; gap:14px; padding:10px 16px 14px; }
+  .mycard .avatar { width:60px; height:60px; font-size:22px; }
+  .mycard .n { font-size:20px; font-weight:600; min-height:24px; }
+  .mycard .s { color:var(--label2); font-size:15px; }
+  .empty { color:var(--label2); text-align:center; padding:60px 30px; font-size:15px; }
+  .skeleton .row .body > div { height:14px; border-radius:7px; background:var(--fill); }
+  .az { position:fixed; right:2px; top:52%; transform:translateY(-50%); display:flex; flex-direction:column; align-items:center; z-index:5; padding:4px 2px; touch-action:none; }
+  .az span { color:var(--blue); font-size:11px; font-weight:600; line-height:15px; width:16px; text-align:center; }
+
+  /* ---------- floating tab bar ---------- */
+  .tabfade { position:fixed; left:0; right:0; bottom:0; height:calc(env(safe-area-inset-bottom) + 92px); z-index:19; pointer-events:none;
+             background:linear-gradient(to bottom, transparent, var(--bg) 55%); }
+  .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(10px, calc(env(safe-area-inset-bottom) - 12px)); width:calc(100% - 28px); max-width:520px; height:64px; border-radius:32px; background:var(--glass); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%); border:.5px solid var(--glassline); box-shadow:0 8px 30px rgba(0,0,0,.18); display:flex; padding:5px; z-index:20; }
+  .tabbar button { flex:1; border-radius:27px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:var(--label); font-size:11px; font-weight:500; }
+  .tabbar button svg { width:25px; height:25px; }
+  .tabbar button.on { color:var(--blue); background:var(--fill); }
+
+  /* ---------- keypad ---------- */
+  .kp { height:100dvh; display:flex; flex-direction:column; align-items:center; padding:calc(env(safe-area-inset-top) + 20px) 0 calc(env(safe-area-inset-bottom) + 96px); }
+  .kp-top { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; padding-bottom:22px; min-height:90px; }
+  .kp-num { font-size:40px; font-weight:400; min-height:50px; letter-spacing:1px; text-align:center; padding:0 24px; word-break:break-all; }
+  .kp-name { color:var(--blue); font-size:17px; min-height:22px; }
+  .kp-grid { display:grid; grid-template-columns:repeat(3,78px); gap:14px 26px; }
+  .key { width:78px; height:78px; border-radius:50%; background:var(--fill); display:flex; flex-direction:column; align-items:center; justify-content:center; user-select:none; -webkit-user-select:none; transition:background .15s; }
+  .key:active { background:#7c7c80; }
+  .key .d { font-size:36px; line-height:38px; }
+  .key .l { font-size:10px; font-weight:700; letter-spacing:2.5px; margin-top:1px; min-height:12px; }
+  .key.sym .d { font-size:40px; line-height:40px; }
+  .kp-bottom { display:grid; grid-template-columns:repeat(3,78px); gap:0 26px; margin-top:16px; align-items:center; }
+  .kp-call { width:78px; height:78px; border-radius:50%; background:var(--green); display:flex; align-items:center; justify-content:center; color:#fff; grid-column:2; }
+  .kp-call svg { width:34px; height:34px; }
+  .kp-del { grid-column:3; display:flex; justify-content:center; color:var(--label); }
+  .kp-del svg { width:30px; height:30px; }
+  @media (max-height:700px) { .key, .kp-call { width:68px; height:68px; } .kp-grid, .kp-bottom { grid-template-columns:repeat(3,68px); gap:10px 24px; } .key .d { font-size:30px; line-height:32px; } }
+
+  /* ---------- contact detail ---------- */
+  .detail { position:fixed; inset:0; z-index:30; background:var(--grouped); overflow-y:auto; transform:translateX(100%); transition:transform .32s cubic-bezier(.2,.8,.2,1); -webkit-overflow-scrolling:touch; }
+  .detail.open { transform:none; }
+  .d-nav { position:sticky; top:0; z-index:5; padding-top:env(safe-area-inset-top); transition:background .2s; }
+  .d-nav.scrolled { background:var(--bar); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border-bottom:.5px solid var(--sep); }
+  .d-nav .circle-btn { background:var(--heroBtn); color:var(--heroBtnFg); }
+  .d-hero { background:linear-gradient(180deg,var(--hero1) 0%,var(--hero2) 100%); margin-top:calc(-56px - env(safe-area-inset-top)); padding:calc(env(safe-area-inset-top) + 70px) 0 26px; text-align:center; }
+  .d-av { width:140px; height:140px; border-radius:50%; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; font-size:60px; font-weight:600; color:#fff; background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,.1)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.35); backdrop-filter:blur(10px); }
+  .d-av svg { width:90px; height:90px; margin-top:24px; }
+  .d-name { font-size:34px; font-weight:700; line-height:1.12; padding:0 24px; color:var(--label); }
+  .d-sub { color:var(--label2); font-size:15px; margin-top:6px; }
+  .d-actions { display:flex; justify-content:center; margin-top:20px; }
+  .d-act { width:56px; height:56px; border-radius:50%; background:var(--heroBtn); color:var(--heroBtnFg); display:flex; align-items:center; justify-content:center; }
+  .d-act svg { width:24px; height:24px; }
+  .d-card { background:var(--card); border-radius:24px; margin:12px 16px; overflow:hidden; }
+  @media (prefers-color-scheme: dark) { .d-card { background:#1c1c1e; } }
+  .d-line { display:flex; align-items:center; gap:10px; padding:13px 18px; border-bottom:.5px solid var(--sep); min-height:50px; }
+  .d-line:last-child { border-bottom:0; }
+  .d-line .grow { flex:1; min-width:0; }
+  .d-line .chev { color:var(--label2); width:16px; height:16px; transition:transform .2s; }
+  .d-line.open .chev { transform:rotate(90deg); }
+  .d-line .lbl { color:var(--blue); font-size:14px; }
+  .d-line .val { font-size:18px; margin-top:1px; }
+  .d-line .muted { color:var(--label2); font-size:15px; white-space:nowrap; }
+  .d-line .ttl { font-size:17px; font-weight:600; }
+  .d-line.missed .what { color:var(--red); }
+  .d-line .what { font-size:16px; }
+  .d-line .sub { color:var(--label2); font-size:14px; margin-top:2px; }
+  .d-line .glyph { color:var(--blue); width:22px; height:22px; }
+  .d-link { color:var(--blue); font-size:17px; }
+  .play { height:32px; padding:0 13px; border-radius:16px; background:var(--fill); color:var(--blue); font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px; flex:none; }
+  .play svg { width:13px; height:13px; }
+  .hist-audio { padding:0 18px 12px; } .hist-audio audio { width:100%; height:40px; }
+
+  /* ---------- sheets / toast / login / splash ---------- */
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }
+  .sheet { position:fixed; left:8px; right:8px; bottom:calc(env(safe-area-inset-bottom) + 8px); z-index:41; max-width:520px; margin:0 auto; }
+  .sheet .grp { background:var(--glass); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-radius:16px; overflow:hidden; margin-top:8px; }
+  .sheet .grp > * { display:block; width:100%; text-align:center; padding:17px; font-size:19px; color:var(--blue); border-bottom:.5px solid var(--sep); }
+  .sheet .grp > *:last-child { border-bottom:0; }
+  .sheet .note { font-size:13px; color:var(--label2); padding:14px 18px; }
+  .sheet .destructive { color:var(--red); }
+  .sheet .cancel { font-weight:600; }
+  .toast { position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 10px); transform:translate(-50%,-160%); transition:transform .35s cubic-bezier(.2,.8,.2,1); z-index:60; width:calc(100% - 24px); max-width:500px; background:var(--glass); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border:.5px solid var(--glassline); border-radius:22px; padding:12px 14px; display:flex; gap:12px; align-items:center; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  .toast.show { transform:translate(-50%,0); }
+  .toast .ic { width:38px; height:38px; border-radius:10px; flex:none; background:linear-gradient(180deg,#1fd1b2,#0a84d6); display:flex; align-items:center; justify-content:center; color:#fff; }
+  .toast .ic svg { width:20px; height:20px; }
+  .toast .tt { font-weight:600; font-size:15px; }
+  .toast .tb { font-size:14px; color:var(--label2); }
+  .login { max-width:400px; margin:0 auto; padding:calc(env(safe-area-inset-top) + 80px) 24px 40px; text-align:center; }
+  .login img { width:84px; height:84px; border-radius:20px; margin-bottom:18px; }
+  .login h1 { font-size:28px; margin:0 0 6px; }
+  .login p { color:var(--label2); margin:0 0 28px; font-size:15px; }
+  .field-grp { background:var(--fill2); border-radius:14px; overflow:hidden; text-align:left; }
+  .field-grp input { width:100%; border:0; background:none; padding:15px 16px; outline:none; font-size:17px; }
+  .field-grp input + input { border-top:.5px solid var(--sep); }
+  .primary { width:100%; height:52px; border-radius:26px; background:var(--blue); color:#fff; font-weight:600; font-size:17px; margin-top:20px; }
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN ======================= -->
+<div id="loginView" class="login hidden">
+  <img src="icon-180.png" alt="">
+  <h1>ExoDial</h1>
+  <p>Sign in to your calling app</p>
+  <div class="field-grp">
+    <input id="email" type="email" placeholder="Email" autocomplete="username">
+    <input id="pass" type="password" placeholder="Password" autocomplete="current-password">
+  </div>
+  <button class="primary" id="loginBtn">Sign In</button>
+</div>
+
+<!-- ======================= APP ======================= -->
+<div id="appView">
+
+  <!-- Favourites -->
+  <section class="page hidden" id="tab-favourites">
+    <div class="nav"><div class="navrow">
+      <span></span><span class="navtitle">Favourites</span>
+      <button class="circle-btn" data-goto="contacts" aria-label="Add favourite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div></div>
+    <h1 class="large-title">Favourites</h1>
+    <div id="favList"></div>
+  </section>
+
+  <!-- Recents -->
+  <section class="page hidden" id="tab-recents">
+    <div class="nav"><div class="navrow">
+      <span></span>
+      <div class="seg"><button class="on" data-filter="all">All</button><button data-filter="missed">Missed</button></div>
+      <button class="circle-btn" id="refreshRecents" aria-label="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+    </div></div>
+    <h1 class="large-title">Recents</h1>
+    <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="recSearch" type="search" placeholder="Search"></label>
+    <div id="recList"></div>
+  </section>
+
+  <!-- Contacts -->
+  <section class="page" id="tab-contacts">
+    <div class="nav"><div class="navrow">
+      <button class="circle-btn" id="settingsBtn" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <span class="navtitle always">Contacts</span>
+      <label class="circle-btn" aria-label="Import contacts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><input type="file" class="vcfInput hidden" accept=".vcf,text/vcard,text/x-vcard"></label>
+    </div>
+    <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="conSearch" type="search" placeholder="Search"></label>
+    </div>
+    <div class="mycard">
+      <div class="avatar" id="myAv"></div>
+      <div><div class="n" id="myName"></div><div class="s" id="myExo">My Card</div></div>
+    </div>
+    <div id="conList"></div>
+    <div class="az" id="az"></div>
+  </section>
+
+  <!-- Keypad -->
+  <section class="hidden" id="tab-keypad">
+    <div class="kp">
+      <div class="kp-top"><div class="kp-num" id="kpNum"></div><div class="kp-name" id="kpName"></div></div>
+      <div class="kp-grid" id="kpGrid"></div>
+      <div class="kp-bottom">
+        <button class="kp-call" id="kpCall" aria-label="Call"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1L6.6 10.8z"/></svg></button>
+        <button class="kp-del hidden" id="kpDel" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><path d="m12 9 6 6M18 9l-6 6"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <div class="tabfade"></div>
+  <nav class="tabbar">
+    <button data-tab="favourites"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9z"/></svg>Favourites</button>
+    <button data-tab="recents"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 6.5V12h-4" fill="none" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Recents</button>
+    <button data-tab="contacts" class="on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6zm0 13.6a7.9 7.9 0 0 1-5.9-2.7c.9-1.7 3.2-2.8 5.9-2.8s5 1.1 5.9 2.8a7.9 7.9 0 0 1-5.9 2.7z"/></svg>Contacts</button>
+    <button data-tab="keypad"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5.5" cy="4.5" r="2.3"/><circle cx="12" cy="4.5" r="2.3"/><circle cx="18.5" cy="4.5" r="2.3"/><circle cx="5.5" cy="11" r="2.3"/><circle cx="12" cy="11" r="2.3"/><circle cx="18.5" cy="11" r="2.3"/><circle cx="5.5" cy="17.5" r="2.3"/><circle cx="12" cy="17.5" r="2.3"/><circle cx="18.5" cy="17.5" r="2.3"/></svg>Keypad</button>
+  </nav>
+</div>
+
+<div class="detail" id="detail"></div>
+
+<div id="sheetWrap" class="hidden">
+  <div class="scrim" id="scrim"></div>
+  <div class="sheet">
+    <div class="grp">
+      <div class="note" id="sheetNote">Contacts</div>
+      <button id="callModeBtn">Call method: Phone dialer</button>
+      <label>Import contacts (.vcf)<input type="file" class="vcfInput hidden" accept=".vcf,text/vcard,text/x-vcard"></label>
+      <button class="destructive" id="logoutBtn">Sign Out</button>
+    </div>
+    <div class="grp"><button class="cancel" id="sheetCancel">Cancel</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><div class="ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1L6.6 10.8z"/></svg></div><div><div class="tt" id="toastT"></div><div class="tb" id="toastB"></div></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ====== Supabase publishable key ======
+const SUPABASE_KEY = "sb_publishable_d_Rr59WvUFEWnRmC03kyOQ_84OhQ5_o";  // publishable key: safe to be public, data is protected by login + table rules
+// ===================================================================
+const SUPABASE_URL = "https://wiwhsvezfqeftlwzthbn.supabase.co";
+const FN_URL = SUPABASE_URL + "/functions/v1/exodial-outgoing";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- tiny cache (instant launch); silently skipped where storage isn't available ----------
+const cache = {
+  get(k) { try { return JSON.parse(localStorage.getItem("exodial:" + k)); } catch (_) { return null; } },
+  set(k, v) { try { localStorage.setItem("exodial:" + k, JSON.stringify(v)); } catch (_) {} },
+  clear() { try { Object.keys(localStorage).filter((k) => k.startsWith("exodial:")).forEach((k) => localStorage.removeItem(k)); } catch (_) {} },
+};
+
+// ---------- icons ----------
+const IC = {
+  phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1L6.6 10.8z"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v6" stroke-linecap="round" stroke-width="2.2"/><circle cx="12" cy="7.6" r="1.3" fill="currentColor" stroke="none"/></svg>',
+  person: '<svg viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="7.5" r="5"/><path d="M2 24c0-6 4.5-9.5 10-9.5S22 18 22 24z"/></svg>',
+  inArrow: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3 4 12M4 6v6h6"/></svg>',
+  outArrow: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13l9-9M6 4h6v6"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>',
+  chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>',
+  play: '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>',
+  rec: '<svg class="rec" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.2"/><circle cx="8" cy="8" r="2.6" fill="currentColor" stroke="none"/></svg>',
+};
+
+// ---------- state ----------
+let contacts = [], people = [], byPhone = new Map(), calls = [], recFilter = "all";
+let me = null, multiUser = false;
+
+function toast(title, body = "", ms = 3500) {
+  $("toastT").textContent = title; $("toastB").textContent = body;
+  const t = $("toast"); t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+// ---------- helpers ----------
+const initials = (name) => {
+  const w = String(name || "").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/).filter(Boolean);
+  if (!w.length || /^\d/.test(w[0])) return "";
+  return ((w[0][0] || "") + (w.length > 1 ? w[w.length - 1][0] : "")).toUpperCase();
+};
+const avatar = (name) => `<div class="avatar">${initials(name) || IC.person}</div>`;
+const nameHtml = (name) => { const s = esc(name); const i = s.indexOf(" "); return i < 0 ? `<b>${s}</b>` : `<b>${s.slice(0, i)}</b>${s.slice(i)}`; };
+const fmtNum = (p) => p ? `+91 ${p.slice(0, 5)} ${p.slice(5)}` : "";
+const fmtDur = (s) => s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m` : s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+function fmtWhen(iso, long = false) {
+  const d = new Date(iso), now = new Date();
+  const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+  const diff = Math.round((day(now) - day(d)) / 864e5);
+  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }).toUpperCase();
+  if (diff === 0) return long ? `Today · ${time}` : time;
+  if (diff === 1) return long ? `Yesterday · ${time}` : "Yesterday";
+  if (diff < 7) return d.toLocaleDateString("en-IN", { weekday: "long" }) + (long ? ` · ${time}` : "");
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "2-digit" }) + (long ? ` · ${time}` : "");
+}
+
+// ---------- sticky nav: blur bar once the large title scrolls away ----------
+function watchNav(section) {
+  const nav = section.querySelector(".nav"), lt = section.querySelector(".large-title");
+  if (!nav) return;
+  const update = () => {
+    if (section.classList.contains("hidden")) return;
+    const limit = lt ? lt.getBoundingClientRect().bottom : 999;
+    nav.classList.toggle("scrolled", lt ? limit < nav.getBoundingClientRect().bottom + 2 : window.scrollY > 4);
+  };
+  window.addEventListener("scroll", update, { passive: true }); section._navUpdate = update;
+}
+document.querySelectorAll("section.page").forEach(watchNav);
+
+// ---------- auth + launch ----------
+function showLoggedIn(on) {
+  $("loginView").classList.toggle("hidden", on);
+  $("appView").classList.toggle("hidden", !on);
+}
+async function boot() {
+  // 1) instant paint from cache
+  if (cache.get("session")) {
+    showLoggedIn(true);
+    me = cache.get("me"); renderMe();
+    const cc = cache.get("contacts"), cl = cache.get("calls");
+    if (cc) setContacts(cc); else $("conList").innerHTML = skeleton();
+    if (cl) { calls = cl; renderRecents(); }
+  }
+  // 2) confirm session, then refresh from server
+  const { data } = await sb.auth.getSession();
+  showLoggedIn(!!data.session);
+  if (!data.session) { cache.clear(); return; }
+  cache.set("session", true);
+  await loadProfile(); loadContacts(); loadRecents();
+}
+function skeleton() { return `<div class="skeleton">${Array.from({ length: 9 }, () => `<div class="row"><div class="avatar"></div><div class="body"><div style="width:${40 + Math.random() * 35}%"></div></div></div>`).join("")}</div>`; }
+$("loginBtn").onclick = async () => {
+  const { error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pass").value });
+  if (error) return toast("Sign in failed", error.message);
+  boot();
+};
+$("logoutBtn").onclick = async () => {
+  closeSheet(); await sb.auth.signOut(); cache.clear();
+  me = null; contacts = []; people = []; calls = []; byPhone = new Map();
+  ["conList", "recList", "favList"].forEach((id) => ($(id).innerHTML = ""));
+  showLoggedIn(false);
+};
+
+// ---------- tabs ----------
+function goTab(tab) {
+  document.querySelectorAll(".tabbar button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
+  ["favourites", "recents", "contacts", "keypad"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== tab));
+  $("az").classList.toggle("hidden", tab !== "contacts" || !!$("conSearch").value);
+  window.scrollTo(0, 0);
+  document.querySelectorAll("section.page").forEach((s) => s._navUpdate && s._navUpdate());
+  if (tab === "recents") loadRecents();
+}
+document.querySelectorAll(".tabbar button").forEach((b) => (b.onclick = () => goTab(b.dataset.tab)));
+document.querySelectorAll("[data-goto]").forEach((b) => (b.onclick = () => goTab(b.dataset.goto)));
+
+// ---------- my profile (works before and after the multi-user upgrade) ----------
+async function loadProfile() {
+  const { data, error } = await sb.from("profiles").select("name, exophone").maybeSingle();
+  multiUser = !error;                       // table exists => multi-user mode
+  if (data) { me = data; cache.set("me", me); }
+  else if (multiUser) toast("Profile not set up", "Ask the admin to add your ExoPhone", 7000);
+  renderMe();
+}
+function renderMe() {
+  $("myName").textContent = me?.name || "My Card";
+  $("myAv").innerHTML = initials(me?.name) || IC.person;
+  $("myExo").textContent = me?.exophone ? `My Card · ExoPhone 0${me.exophone}` : "My Card · ExoDial";
+}
+
+// ---------- contacts ----------
+async function loadContacts() {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from("contacts").select("name, phone, company, tag, favourite").order("name").range(from, from + 999);
+    if (error) return toast("Couldn't load contacts", error.message);
+    rows.push(...data);
+    if (data.length < 1000) break;
+  }
+  cache.set("contacts", rows);
+  setContacts(rows);
+}
+function setContacts(rows) {
+  contacts = rows;
+  const map = new Map();
+  for (const r of rows) {
+    const k = (r.name + "|" + (r.company || "")).toLowerCase();
+    if (!map.has(k)) map.set(k, { name: r.name, company: r.company, tag: r.tag, phones: [], fav: false });
+    const p = map.get(k); p.phones.push(r.phone); if (r.favourite) p.fav = true;
+  }
+  people = [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+  byPhone = new Map(); people.forEach((p) => p.phones.forEach((ph) => byPhone.set(ph, p)));
+  renderContacts(); renderFavs(); if (calls.length) renderRecents();
+}
+const sectionKey = (name) => { const c = name.trim()[0]?.toUpperCase() || "#"; return /[A-Z]/.test(c) ? c : "#"; };
+let shownPeople = [];
+function renderContacts() {
+  const q = $("conSearch").value.trim().toLowerCase(), qd = q.replace(/\D/g, "");
+  shownPeople = !q ? people : people.filter((p) =>
+    p.name.toLowerCase().includes(q) || (p.company || "").toLowerCase().includes(q) || (qd.length >= 3 && p.phones.some((ph) => ph.includes(qd))));
+  $("az").classList.toggle("hidden", !!q || $("tab-contacts").classList.contains("hidden"));
+  if (!shownPeople.length) { $("conList").innerHTML = `<div class="empty">${people.length ? "No results" : "No contacts yet. Tap + to import your .vcf file."}</div>`; return; }
+  let html = "", cur = null;
+  shownPeople.forEach((p, i) => {
+    const k = sectionKey(p.name);
+    if (!q && k !== cur) { if (cur !== null) html += "</div>"; cur = k; html += `<div class="section-h" id="sec-${k}">${k}</div><div>`; }
+    html += `<div class="row" data-i="${i}">${avatar(p.name)}<div class="body">
+      <div class="txt"><div class="t1">${nameHtml(p.name)}</div>${p.company ? `<div class="t2">${esc(p.company)}</div>` : ""}</div>
+      <button class="call-btn" data-call="${i}" aria-label="Call ${esc(p.name)}">${IC.phone}</button></div></div>`;
+  });
+  if (!q) html += "</div>";
+  $("conList").innerHTML = html;
+  $("az").innerHTML = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#".split("").map((l) => `<span data-l="${l}">${l}</span>`).join("");
+}
+$("conSearch").oninput = renderContacts;
+$("conList").onclick = (e) => {
+  const cb = e.target.closest("[data-call]");
+  if (cb) { const p = shownPeople[+cb.dataset.call]; return placeCall(p.phones[0], p.name, p.company, cb); }
+  const row = e.target.closest(".row[data-i]"); if (row) openPerson(shownPeople[+row.dataset.i]);
+};
+function azJump(e) {
+  const t = e.touches ? document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY) : e.target;
+  const l = t?.dataset?.l; if (!l) return;
+  const order = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#";
+  for (let i = order.indexOf(l); i < order.length; i++) { const s = $("sec-" + order[i]); if (s) { window.scrollTo(0, s.offsetTop - 140); break; } }
+  e.preventDefault();
+}
+["click", "touchmove", "touchstart"].forEach((ev) => $("az").addEventListener(ev, azJump, { passive: false }));
+
+// ---------- favourites ----------
+function renderFavs() {
+  const favs = people.filter((p) => p.fav);
+  $("favList").innerHTML = favs.length ? favs.map((p, i) => `
+    <div class="row" data-f="${i}">${avatar(p.name)}<div class="body">
+      <div class="txt"><div class="t1" style="font-weight:600">${esc(p.name)}</div><div class="t2">${IC.phone}mobile</div></div>
+      <button class="info-btn" data-finfo="${i}" aria-label="Info">${IC.info}</button></div></div>`).join("")
+    : `<div class="empty">No favourites yet.<br>Open a contact and tap Add to Favourites.</div>`;
+  $("favList").onclick = (e) => {
+    const inf = e.target.closest("[data-finfo]"); if (inf) return openPerson(favs[+inf.dataset.finfo]);
+    const row = e.target.closest(".row"); if (row) { const p = favs[+row.dataset.f]; placeCall(p.phones[0], p.name, p.company); }
+  };
+}
+async function toggleFav(p) {
+  const val = !p.fav;
+  const { error } = await sb.from("contacts").update({ favourite: val }).in("phone", p.phones);
+  if (error) return toast("Couldn't update favourite", error.message);
+  p.fav = val; contacts.forEach((r) => { if (p.phones.includes(r.phone)) r.favourite = val; });
+  cache.set("contacts", contacts); renderFavs(); openPerson(p, true);
+  toast(val ? "Added to Favourites" : "Removed from Favourites", p.name, 1800);
+}
+
+// ---------- recents ----------
+async function loadRecents() {
+  const { data, error } = await sb.from("call_logs")
+    .select("call_sid, created_at, direction, number, contact_name, event, recording_url, dcd:raw->>DialCallDuration, cd:raw->>ConversationDuration")
+    .order("created_at", { ascending: false }).limit(800);
+  if (error) return toast("Couldn't load recents", error.message);
+  const map = new Map();
+  for (const r of data) {
+    const k = r.call_sid || r.created_at;
+    let c = map.get(k);
+    if (!c) { c = { sid: r.call_sid, dir: r.direction, number: r.number, name: r.contact_name, time: r.created_at, ev: [], rec: false, dur: 0 }; map.set(k, c); }
+    c.ev.push(r.event);
+    if (r.created_at < c.time) c.time = r.created_at;
+    if (!c.number && r.number) c.number = r.number;
+    if (!c.name && r.contact_name) c.name = r.contact_name;
+    if (r.recording_url) c.rec = true;
+    const d = parseInt(r.dcd || r.cd || 0) || 0; if (d > c.dur) c.dur = d;
+  }
+  calls = [...map.values()].map((c) => {
+    const ev = new Set(c.ev);
+    if (c.dir === "inbound") c.status = ev.has("answered") ? "answered" : (ev.has("missed") || ev.has("not_reached")) ? "missed" : "ringing";
+    else {
+      const bad = c.ev.some((e) => e.startsWith("outbound_") && !["outbound_start", "outbound_you_answered", "outbound_connected", "outbound_answered"].includes(e));
+      c.status = ev.has("outbound_answered") || ev.has("outbound_connected") ? "answered" : bad ? "failed" : "dialled";
+    }
+    delete c.ev; return c;
+  }).sort((a, b) => b.time.localeCompare(a.time));
+  cache.set("calls", calls.slice(0, 300));
+  renderRecents();
+}
+const isMissed = (c) => c.dir === "inbound" && c.status === "missed";
+const displayName = (c) => byPhone.get(c.number)?.name || c.name || fmtNum(c.number) || "Unknown";
+function callKind(c) {
+  if (c.dir === "inbound") return c.status === "missed" ? "Missed Call" : "Incoming Call";
+  return c.status === "failed" ? "Cancelled Call" : "Outgoing Call";
+}
+let shownGroups = [];
+function renderRecents() {
+  const q = $("recSearch").value.trim().toLowerCase(), qd = q.replace(/\D/g, "");
+  const list = calls.filter((c) => (recFilter === "all" || isMissed(c)) &&
+    (!q || displayName(c).toLowerCase().includes(q) || (qd && (c.number || "").includes(qd))));
+  // Group back-to-back calls from the same number of the same kind, like iPhone ("Name (3)")
+  shownGroups = [];
+  for (const c of list) {
+    const g = shownGroups[shownGroups.length - 1];
+    if (g && g.number === c.number && isMissed(g.items[0]) === isMissed(c) && g.items[0].dir === c.dir) g.items.push(c);
+    else shownGroups.push({ number: c.number, items: [c] });
+  }
+  $("recList").innerHTML = shownGroups.length ? shownGroups.map((g, i) => {
+    const c = g.items[0], p = byPhone.get(c.number), known = !!(p || c.name);
+    const label = known ? "mobile" : "Unknown";
+    return `<div class="row ${isMissed(c) ? "missed" : ""}" data-g="${i}">
+      ${avatar(p?.name || c.name || "")}
+      <div class="body">
+        <div class="txt"><div class="t1" style="font-weight:600">${esc(displayName(c))}${g.items.length > 1 ? ` (${g.items.length})` : ""}</div>
+          <div class="t2">${c.dir === "inbound" ? IC.inArrow : IC.outArrow}${label}${g.items.some((x) => x.rec) ? IC.rec : ""}</div></div>
+        <span class="time">${fmtWhen(c.time)}</span>
+        <button class="info-btn" data-ginfo="${i}" aria-label="Info">${IC.info}</button>
+      </div></div>`;
+  }).join("") : `<div class="empty">${recFilter === "missed" ? "No missed calls" : "No recent calls"}</div>`;
+}
+$("recSearch").oninput = renderRecents;
+$("refreshRecents").onclick = loadRecents;
+document.querySelectorAll(".seg button").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll(".seg button").forEach((x) => x.classList.toggle("on", x === b));
+  recFilter = b.dataset.filter; renderRecents();
+}));
+$("recList").onclick = (e) => {
+  const inf = e.target.closest("[data-ginfo]");
+  const row = e.target.closest(".row[data-g]"); if (!row) return;
+  const c = shownGroups[+row.dataset.g].items[0], p = byPhone.get(c.number);
+  if (inf) return p ? openPerson(p) : openNumber(c.number, c.name);
+  placeCall(c.number, p?.name || c.name || "", p?.company || "");   // tap row = call back, like iPhone
+};
+
+// ---------- contact detail ----------
+let histOpen = false;
+function historyCard(phones) {
+  const list = calls.filter((c) => phones.includes(c.number)).slice(0, 50);
+  if (!list.length) return "";
+  const many = phones.length > 1;
+  const line = (c, i) => `
+    <div class="d-line ${isMissed(c) ? "missed" : ""}" style="flex-wrap:wrap">
+      <div class="grow"><div class="what">${callKind(c)}</div>
+        <div class="sub">${fmtWhen(c.time, true)}${c.status === "answered" && c.dur ? " · " + fmtDur(c.dur) : ""}${many ? " · " + fmtNum(c.number) : ""}</div></div>
+      ${c.rec && c.sid ? `<button class="play" data-play="${esc(c.sid)}" data-h="${i}">${IC.play}Play</button>` : ""}
+    </div><div class="hist-audio hidden" id="ha-${i}"></div>`;
+  return `<div class="d-card">
+    <div class="d-line ${histOpen ? "open" : ""}" id="histToggle" style="cursor:pointer"><div class="grow ttl">Call History</div><span class="muted">${list.length}</span>${IC.chev}</div>
+    ${(histOpen ? list : list.slice(0, 1)).map(line).join("")}
+  </div>`;
+}
+let detailCtx = null;
+function renderDetail(ctx) {
+  detailCtx = ctx;
+  const { name, company, phones, person } = ctx, d = $("detail");
+  d.innerHTML = `
+    <div class="d-nav" id="dNav"><div class="navrow">
+      <button class="circle-btn" id="dBack" aria-label="Back">${IC.back}</button>
+      <span class="navtitle" id="dTitle">${esc(name)}</span><span></span>
+    </div></div>
+    <div class="d-hero">
+      <div class="d-av">${initials(name) || IC.person}</div>
+      <div class="d-name" id="dName">${esc(name)}</div>
+      ${company ? `<div class="d-sub">${esc(company)}</div>` : ""}
+      <div class="d-actions"><button class="d-act" id="dCall" aria-label="Call">${IC.phone}</button></div>
+    </div>
+    ${historyCard(phones)}
+    <div class="d-card">${phones.map((ph, i) => `
+      <div class="d-line" data-dcall="${ph}" style="cursor:pointer"><div class="grow"><div class="lbl">mobile</div><div class="val">${fmtNum(ph)}</div></div>
+      <span class="glyph">${IC.phone}</span></div>`).join("")}
+    </div>
+    ${person ? `<div class="d-card"><div class="d-line" id="dFav" style="cursor:pointer"><span class="d-link">${person.fav ? "Remove from Favourites" : "Add to Favourites"}</span></div></div>` : ""}
+    <div style="height:calc(env(safe-area-inset-bottom) + 40px)"></div>`;
+  $("dBack").onclick = closeDetail;
+  $("dCall").onclick = (e) => placeCall(phones[0], person ? name : "", company, e.currentTarget);
+  if (person) $("dFav").onclick = () => toggleFav(person);
+  const ht = $("histToggle"); if (ht) ht.onclick = () => { histOpen = !histOpen; const top = d.scrollTop; renderDetail(detailCtx); d.scrollTop = top; };
+  d.querySelectorAll("[data-dcall]").forEach((b) => (b.onclick = () => placeCall(b.dataset.dcall, person ? name : "", company)));
+  d.querySelectorAll("[data-play]").forEach((b) => (b.onclick = () => playRecording(b)));
+  d.onscroll = () => {
+    const nb = $("dName").getBoundingClientRect().bottom, navB = $("dNav").getBoundingClientRect().bottom;
+    $("dNav").classList.toggle("scrolled", nb < navB);
+  };
+}
+function openPerson(p, keep = false) {
+  const top = $("detail").scrollTop; if (!keep) histOpen = false;
+  renderDetail({ name: p.name, company: p.company, phones: p.phones, person: p });
+  $("detail").classList.add("open"); $("detail").scrollTop = keep ? top : 0;
+}
+function openNumber(num, name) {
+  histOpen = false;
+  renderDetail({ name: name || fmtNum(num) || "Unknown", company: name ? fmtNum(num) : "", phones: [num], person: null });
+  $("detail").classList.add("open"); $("detail").scrollTop = 0;
+}
+function closeDetail() { $("detail").classList.remove("open"); document.querySelectorAll("#detail audio").forEach((a) => a.pause()); }
+// swipe from the left edge to go back
+(() => { let x0 = null; const d = $("detail");
+  d.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX < 24 ? e.touches[0].clientX : null; }, { passive: true });
+  d.addEventListener("touchend", (e) => { if (x0 !== null && e.changedTouches[0].clientX - x0 > 80) closeDetail(); x0 = null; }); })();
+
+async function playRecording(btn) {
+  const box = $("ha-" + btn.dataset.h);
+  const existing = box.querySelector("audio");
+  if (existing) { box.classList.toggle("hidden"); existing.paused ? existing.play() : existing.pause(); return; }
+  btn.disabled = true; btn.innerHTML = "Loading…";
+  try {
+    const { data: s } = await sb.auth.getSession();
+    const res = await fetch(`${FN_URL}?rec=${encodeURIComponent(btn.dataset.play)}`, {
+      headers: { Authorization: "Bearer " + s.session.access_token, apikey: SUPABASE_KEY },
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+    const a = document.createElement("audio"); a.controls = true; a.src = URL.createObjectURL(await res.blob());
+    box.appendChild(a); box.classList.remove("hidden"); a.play().catch(() => {});
+  } catch (e) { toast("Recording not available", e.message); }
+  btn.innerHTML = IC.play + "Play"; btn.disabled = false;
+}
+
+// ---------- calling ----------
+// ---------- call method ----------
+// "dialer"   = tap Call -> iPhone dials your ExoPhone -> Exotel connects the contact (default on phones)
+// "callback" = tap Call -> Exotel rings your phone first, then the contact (default on laptop)
+let accessToken = null;
+sb.auth.onAuthStateChange((_e, s) => { accessToken = s?.access_token || null; });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) sb.auth.getSession(); }); // refresh login after waking up
+const isPhone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const callMode = () => cache.get("callMode") || (isPhone ? "dialer" : "callback");
+function renderCallMode() { $("callModeBtn").textContent = callMode() === "dialer" ? "Call method: Phone dialer ✓" : "Call method: Exotel calls me first ✓"; }
+$("callModeBtn").onclick = () => {
+  cache.set("callMode", callMode() === "dialer" ? "callback" : "dialer"); renderCallMode();
+  toast(callMode() === "dialer" ? "Phone dialer" : "Exotel calls me first",
+    callMode() === "dialer" ? "Tap Call, then confirm the iPhone prompt" : "Your phone rings first, then the contact", 3500);
+};
+renderCallMode();
+
+function placeCall(phone, name, company, btn) {
+  if (callMode() === "dialer" && me?.exophone && accessToken) return dialViaExoPhone(phone, name, company, btn);
+  return callbackCall(phone, name, company, btn);
+}
+
+// VN dial-out: save "I want to call X", then open the iPhone dialer on my ExoPhone.
+// The request is sent with keepalive so it still completes while iOS switches to the Phone app.
+function dialViaExoPhone(phone, name, company, btn) {
+  if (btn) { btn.disabled = true; setTimeout(() => (btn.disabled = false), 5000); }
+  fetch(`${SUPABASE_URL}/rest/v1/dial_intents`, {
+    method: "POST", keepalive: true,
+    headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + accessToken, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ phone, name: name || null, company: company || null }),
+  }).then((r) => { if (!r.ok) toast("Call request failed", "Please tap Call again", 6000); }).catch(() => {});
+  toast(`Calling ${name || fmtNum(phone)}`, "Tap Call in the iPhone prompt", 4000);
+  location.href = "tel:0" + me.exophone;
+  setTimeout(loadRecents, 20000);
+}
+
+async function callbackCall(phone, name, company, btn) {
+  if (btn) { btn.disabled = true; setTimeout(() => (btn.disabled = false), 8000); }
+  toast(`Calling ${name || fmtNum(phone)}`, "Answer the call from your ExoPhone to connect", 5000);
+  // iPhone home-screen apps often drop the first request after waking up, so retry once on a network error
+  let { data, error } = await sb.functions.invoke("exodial-outgoing", { body: { phone, name, company } });
+  if (error?.name === "FunctionsFetchError") {
+    await sb.auth.getSession();                       // also refreshes an expired login
+    await new Promise((r) => setTimeout(r, 1200));
+    ({ data, error } = await sb.functions.invoke("exodial-outgoing", { body: { phone, name, company } }));
+  }
+  if (error?.name === "FunctionsFetchError") return toast("Call failed", "No connection to ExoDial. Check your internet and tap Call again.", 7000);
+  if (error || data?.error) {
+    let msg = data?.error || error.message;
+    try { msg = (await error.context.json()).error || msg; } catch (_) {}
+    toast("Call failed", msg, 7000);
+  } else setTimeout(loadRecents, 4000);
+}
+
+// ---------- keypad ----------
+const KEYS = [["1", ""], ["2", "ABC"], ["3", "DEF"], ["4", "GHI"], ["5", "JKL"], ["6", "MNO"], ["7", "PQRS"], ["8", "TUV"], ["9", "WXYZ"], ["*", ""], ["0", "+"], ["#", ""]];
+let kp = "";
+$("kpGrid").innerHTML = KEYS.map(([d, l]) => `<button class="key ${/[*#]/.test(d) ? "sym" : ""}" data-k="${d}"><span class="d">${d}</span><span class="l">${l}</span></button>`).join("");
+function kpRender() {
+  const d = kp.replace(/\D/g, "");
+  $("kpNum").textContent = kp.length > 10 ? kp : kp.replace(/^(\d{5})(\d+)/, "$1 $2");
+  $("kpDel").classList.toggle("hidden", !kp);
+  const p = d.length >= 10 ? byPhone.get(d.slice(-10)) : null;
+  $("kpName").textContent = p ? p.name : "";
+}
+$("kpGrid").onclick = (e) => { const k = e.target.closest("[data-k]"); if (!k || kp.length >= 15) return; kp += k.dataset.k; kpRender(); };
+let delTimer;
+$("kpDel").onclick = () => { kp = kp.slice(0, -1); kpRender(); };
+$("kpDel").addEventListener("touchstart", () => (delTimer = setTimeout(() => { kp = ""; kpRender(); }, 600)), { passive: true });
+$("kpDel").addEventListener("touchend", () => clearTimeout(delTimer));
+$("kpCall").onclick = (e) => {
+  const d = kp.replace(/\D/g, "").slice(-10);
+  if (d.length !== 10) return toast("Enter a valid number", "10 digit Indian number");
+  const p = byPhone.get(d);
+  placeCall(d, p?.name || "", p?.company || "", e.currentTarget);
+};
+document.addEventListener("keydown", (e) => {
+  if ($("tab-keypad").classList.contains("hidden") || e.target.tagName === "INPUT") return;
+  if (/^[0-9*#]$/.test(e.key)) { kp += e.key; kpRender(); }
+  else if (e.key === "Backspace") { kp = kp.slice(0, -1); kpRender(); }
+  else if (e.key === "Enter") $("kpCall").click();
+});
+document.addEventListener("paste", (e) => {
+  if ($("tab-keypad").classList.contains("hidden")) return;
+  kp = (e.clipboardData.getData("text") || "").replace(/[^\d*#+]/g, "").slice(-15); kpRender();
+});
+
+// ---------- settings sheet ----------
+function closeSheet() { $("sheetWrap").classList.add("hidden"); }
+$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers`; $("sheetWrap").classList.remove("hidden"); };
+$("scrim").onclick = closeSheet; $("sheetCancel").onclick = closeSheet;
+
+// ---------- vCard import ----------
+function normPhone(raw) {
+  const plus = raw.trim().startsWith("+");
+  const d = raw.replace(/\D/g, "");
+  if (plus) return d.length === 12 && d.startsWith("91") ? d.slice(2) : null;
+  if (d.length === 10) return d;
+  if (d.length === 11 && d.startsWith("0")) return d.slice(1);
+  if (d.length === 12 && d.startsWith("91")) return d.slice(2);
+  if (d.length === 13 && d.startsWith("091")) return d.slice(3);
+  return null;
+}
+function parseVcf(text) {
+  const unesc = (s) => s.replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
+  const cards = text.replace(/\r?\n[ \t]/g, "").split(/BEGIN:VCARD/i).slice(1);
+  const out = new Map();
+  for (const card of cards) {
+    let fn = "", n = "", org = ""; const tels = [];
+    for (const line of card.split(/\r?\n/)) {
+      const m = line.match(/^(?:item\d+\.)?(FN|N|ORG|TEL)[;:]/i);
+      if (!m) continue;
+      const val = line.slice(line.indexOf(":") + 1), k = m[1].toUpperCase();
+      if (k === "FN") fn = unesc(val);
+      else if (k === "N") n = val.split(";").slice(0, 2).reverse().map(unesc).filter(Boolean).join(" ");
+      else if (k === "ORG") org = unesc(val.split(";")[0]);
+      else tels.push(val);
+    }
+    const name = fn || n || org;
+    if (!name) continue;
+    for (const t of tels.flatMap((x) => x.split(/\\?[,\/]/))) {
+      const phone = normPhone(t);
+      if (!phone) continue;
+      out.set(phone, { name, phone, company: org || null, tag: /exotel/i.test(org + " " + name) ? "exotel" : "external" });
+    }
+  }
+  return [...out.values()];
+}
+document.querySelectorAll(".vcfInput").forEach((inp) => (inp.onchange = async (e) => {
+  closeSheet();
+  const file = e.target.files[0]; if (!file) return;
+  let rows = parseVcf(await file.text());
+  if (!rows.length) return toast("Nothing to import", "No Indian numbers found in this file");
+  let conflict = "phone";
+  if (multiUser) {                           // after the multi-user upgrade, contacts belong to the signed-in user
+    const { data: s } = await sb.auth.getSession();
+    rows = rows.map((r) => ({ ...r, owner_id: s.session.user.id })); conflict = "owner_id,phone";
+  }
+  for (let i = 0; i < rows.length; i += 500) {
+    toast("Importing contacts", `${Math.min(i + 500, rows.length)} of ${rows.length}`, 10000);
+    const { error } = await sb.from("contacts").upsert(rows.slice(i, i + 500), { onConflict: conflict });
+    if (error) return toast("Import failed", error.message, 7000);
+  }
+  toast("Import complete", `${rows.length} numbers imported`);
+  e.target.value = ""; loadContacts();
+}));
+
+boot();
+</script>
+</body>
+</html>
