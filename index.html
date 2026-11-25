@@ -783,9 +783,9 @@ function renderLive() {
     if (!live) return;
     if (live.phase === "ended") $("lbTime").textContent = live.dur ? fmtDur(live.dur) : "";
     else if (live.phase === "connected") $("lbTime").textContent = mmss(Date.now() - live.connectedAt);
-    else $("lbTime").textContent = live.startedAt ? mmss(Date.now() - live.startedAt) : "";
+    else $("lbTime").textContent = "";        // no timer until the call is answered (like iOS)
   };
-  t(); clearInterval(liveTick); if (live.phase !== "ended") liveTick = setInterval(t, 1000);
+  t(); clearInterval(liveTick); if (live.phase === "connected") liveTick = setInterval(t, 1000);
 }
 
 function liveEvent(row) {
@@ -884,7 +884,7 @@ document.addEventListener("paste", (e) => {
 
 // ---------- settings sheet ----------
 function closeSheet() { $("sheetWrap").classList.add("hidden"); }
-$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v2.1`; $("sheetWrap").classList.remove("hidden"); };
+$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v2.1.1`; $("sheetWrap").classList.remove("hidden"); };
 $("scrim").onclick = closeSheet; $("sheetCancel").onclick = closeSheet;
 
 // ---------- vCard import ----------
