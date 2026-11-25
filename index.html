@@ -42,7 +42,8 @@
 
   /* ---------- page + sticky nav ---------- */
   /* each tab is pinned to the real screen edges; only its .scroller scrolls */
-  .page { position:fixed; top:0; left:0; right:0; bottom:0; display:flex; flex-direction:column; z-index:0; }
+  /* --appH = real screen height (set in JS). iPhone home-screen apps report a short viewport, so nothing is anchored to "bottom" */
+  .page { position:fixed; top:0; left:0; right:0; height:var(--appH, 100dvh); display:flex; flex-direction:column; z-index:0; }
   .scroller { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; padding-bottom:calc(env(safe-area-inset-bottom) + 120px); }
   .nav { position:relative; flex:none; z-index:10; padding-top:env(safe-area-inset-top); transition:background .2s, border-color .2s; border-bottom:.5px solid transparent; }
   .nav.scrolled { background:var(--bar); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border-bottom-color:var(--sep); }
@@ -95,15 +96,15 @@
   .az span { color:var(--blue); font-size:11px; font-weight:600; line-height:15px; width:16px; text-align:center; }
 
   /* ---------- floating tab bar ---------- */
-  .tabfade { position:fixed; left:0; right:0; bottom:0; height:calc(env(safe-area-inset-bottom) + 92px); z-index:19; pointer-events:none;
+  .tabfade { position:fixed; left:0; right:0; top:calc(var(--appH, 100dvh) - env(safe-area-inset-bottom) - 92px); height:calc(env(safe-area-inset-bottom) + 92px); z-index:19; pointer-events:none;
              background:linear-gradient(to bottom, transparent, var(--bg) 55%); }
-  .tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:max(10px, calc(env(safe-area-inset-bottom) - 12px)); width:calc(100% - 28px); max-width:520px; height:64px; border-radius:32px; background:var(--glass); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%); border:.5px solid var(--glassline); box-shadow:0 8px 30px rgba(0,0,0,.18); display:flex; padding:5px; z-index:20; }
+  .tabbar { position:fixed; left:50%; transform:translateX(-50%); top:calc(var(--appH, 100dvh) - 64px - max(10px, calc(env(safe-area-inset-bottom) - 12px))); width:calc(100% - 28px); max-width:520px; height:64px; border-radius:32px; background:var(--glass); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%); border:.5px solid var(--glassline); box-shadow:0 8px 30px rgba(0,0,0,.18); display:flex; padding:5px; z-index:20; }
   .tabbar button { flex:1; border-radius:27px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; color:var(--label); font-size:11px; font-weight:500; }
   .tabbar button svg { width:25px; height:25px; }
   .tabbar button.on { color:var(--blue); background:var(--fill); }
 
   /* ---------- keypad ---------- */
-  .kp { height:100dvh; display:flex; flex-direction:column; align-items:center; padding:calc(env(safe-area-inset-top) + 20px) 0 calc(env(safe-area-inset-bottom) + 96px); }
+  .kp { height:var(--appH, 100dvh); display:flex; flex-direction:column; align-items:center; padding:calc(env(safe-area-inset-top) + 20px) 0 calc(env(safe-area-inset-bottom) + 96px); }
   .kp-top { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; padding-bottom:22px; min-height:90px; }
   .kp-num { font-size:40px; font-weight:400; min-height:50px; letter-spacing:1px; text-align:center; padding:0 24px; word-break:break-all; }
   .kp-name { color:var(--blue); font-size:17px; min-height:22px; }
@@ -121,7 +122,7 @@
   @media (max-height:700px) { .key, .kp-call { width:68px; height:68px; } .kp-grid, .kp-bottom { grid-template-columns:repeat(3,68px); gap:10px 24px; } .key .d { font-size:30px; line-height:32px; } }
 
   /* ---------- contact detail ---------- */
-  .detail { position:fixed; inset:0; z-index:30; background:var(--grouped); overflow-y:auto; transform:translateX(100%); transition:transform .32s cubic-bezier(.2,.8,.2,1); -webkit-overflow-scrolling:touch; }
+  .detail { position:fixed; top:0; left:0; right:0; height:var(--appH, 100dvh); z-index:30; background:var(--grouped); overflow-y:auto; transform:translateX(100%); transition:transform .32s cubic-bezier(.2,.8,.2,1); -webkit-overflow-scrolling:touch; }
   .detail.open { transform:none; }
   .d-nav { position:sticky; top:0; z-index:5; padding-top:env(safe-area-inset-top); transition:background .2s; }
   .d-nav.scrolled { background:var(--bar); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border-bottom:.5px solid var(--sep); }
@@ -155,8 +156,8 @@
   .hist-audio { padding:0 18px 12px; } .hist-audio audio { width:100%; height:40px; }
 
   /* ---------- sheets / toast / login / splash ---------- */
-  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:40; }
-  .sheet { position:fixed; left:8px; right:8px; bottom:calc(env(safe-area-inset-bottom) + 8px); z-index:41; max-width:520px; margin:0 auto; }
+  .scrim { position:fixed; top:0; left:0; right:0; height:var(--appH, 100dvh); background:rgba(0,0,0,.4); z-index:40; }
+  .sheet { position:fixed; left:8px; right:8px; top:calc(var(--appH, 100dvh) - env(safe-area-inset-bottom) - 8px); transform:translateY(-100%); z-index:41; max-width:520px; margin:0 auto; }
   .sheet .grp { background:var(--glass); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border-radius:16px; overflow:hidden; margin-top:8px; }
   .sheet .grp > * { display:block; width:100%; text-align:center; padding:17px; font-size:19px; color:var(--blue); border-bottom:.5px solid var(--sep); }
   .sheet .grp > *:last-child { border-bottom:0; }
@@ -335,6 +336,14 @@ function fmtWhen(iso, long = false) {
   if (diff < 7) return d.toLocaleDateString("en-IN", { weekday: "long" }) + (long ? ` · ${time}` : "");
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "2-digit" }) + (long ? ` · ${time}` : "");
 }
+
+// ---------- real screen height (home-screen apps on iPhone report a shorter viewport) ----------
+function fitScreen() {
+  const portrait = matchMedia("(orientation: portrait)").matches;
+  const h = navigator.standalone ? (portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height)) : window.innerHeight;
+  document.documentElement.style.setProperty("--appH", h + "px");
+}
+fitScreen(); addEventListener("resize", fitScreen); addEventListener("orientationchange", () => setTimeout(fitScreen, 300));
 
 // ---------- pinned top bar: each tab scrolls inside its own area (like iOS) ----------
 document.querySelectorAll("section.page").forEach((sec) => {
