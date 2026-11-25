@@ -766,6 +766,8 @@ const LIVE_EVENTS = {
 };
 let live = null, liveTick = null, liveHide = null, liveChannel = null;
 const LIVE_MAX_AGE = 2 * 3600e3;   // ignore anything older than 2 hours
+// Exotel sends "2026-11-26 01:55:46" (IST). Using Exotel's own clock on both ends keeps talk time exact.
+const exoTime = (t) => { if (!t) return 0; const d = new Date(String(t).replace(" ", "T") + "+05:30").getTime(); return isNaN(d) ? 0 : d; };
 const mmss = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
 
 function liveName(num, fallback) { return byPhone.get(num)?.name || fallback || fmtNum(num) || "Unknown"; }
@@ -805,10 +807,16 @@ function liveEvent(row) {
   if (row.number) live.number = row.number;
   live.name = liveName(live.number, row.contact_name || live.name);
   live.phase = def.phase; live.status = def.status; live.ok = !!def.ok;
-  if (def.phase === "connected" && !live.connectedAt) live.connectedAt = at;
+  if (def.phase === "connected" && !live.connectedAt) { live.connectedAt = at; live.connectedExo = exoTime(row.raw?.CurrentTime); }
   if (def.phase === "ended") {
     const raw = row.raw || {};
-    live.dur = parseInt(raw.DialCallDuration || raw.ConversationDuration || row.dcd || row.cd || 0) || 0;
+    // Talk time only: from "answered" to "ended". Never includes ringing.
+    if (raw.ConversationDuration) live.dur = parseInt(raw.ConversationDuration) || 0;          // Exotel's own talk time (laptop mode)
+    else if (live.connectedAt) {
+      const endExo = exoTime(raw.CurrentTime);
+      live.dur = live.connectedExo && endExo ? Math.round((endExo - live.connectedExo) / 1000) : Math.round((at - live.connectedAt) / 1000);
+      live.dur = Math.max(0, live.dur);
+    } else live.dur = 0;                                                                        // never answered -> no time
     if (live.ok && live.dur) live.status = "Call ended";
     liveHide = setTimeout(() => { live = null; renderLive(); }, 4500);
     setTimeout(loadRecents, 1500);
@@ -884,7 +892,7 @@ document.addEventListener("paste", (e) => {
 
 // ---------- settings sheet ----------
 function closeSheet() { $("sheetWrap").classList.add("hidden"); }
-$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v2.1.1`; $("sheetWrap").classList.remove("hidden"); };
+$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v2.1.2`; $("sheetWrap").classList.remove("hidden"); };
 $("scrim").onclick = closeSheet; $("sheetCancel").onclick = closeSheet;
 
 // ---------- vCard import ----------
