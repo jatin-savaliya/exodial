@@ -535,7 +535,7 @@ async function toggleFav(p) {
 // ---------- recents ----------
 async function loadRecents() {
   const { data, error } = await sb.from("call_logs")
-    .select("call_sid, created_at, direction, number, contact_name, event, recording_url, dcd:raw->>DialCallDuration, cd:raw->>ConversationDuration")
+    .select("call_sid, created_at, direction, number, contact_name, event, recording_url, dcd:raw->>DialCallDuration, cd:raw->>ConversationDuration, ct:raw->>CurrentTime")
     .order("created_at", { ascending: false }).limit(800);
   if (error) return toast("Couldn't load recents", error.message);
   const map = new Map();
@@ -548,7 +548,11 @@ async function loadRecents() {
     if (!c.number && r.number) c.number = r.number;
     if (!c.name && r.contact_name) c.name = r.contact_name;
     if (r.recording_url) c.rec = true;
-    const d = parseInt(r.dcd || r.cd || 0) || 0; if (d > c.dur) c.dur = d;
+    // talk time pieces: Exotel's talk time (laptop mode), or answered -> ended times, or dial time as last resort
+    if (r.cd) c.talk = parseInt(r.cd) || 0;
+    if ((r.event === "connected" || r.event === "outbound_connected") && r.ct) c.ansAt = exoTime(r.ct);
+    if ((r.event === "answered" || r.event === "outbound_answered") && r.ct) c.endAt = exoTime(r.ct);
+    const d = parseInt(r.dcd || 0) || 0; if (d > c.dur) c.dur = d;
   }
   calls = [...map.values()].map((c) => {
     const ev = new Set(c.ev);
@@ -557,7 +561,10 @@ async function loadRecents() {
       const bad = c.ev.some((e) => e.startsWith("outbound_") && !["outbound_start", "outbound_you_answered", "outbound_connected", "outbound_answered"].includes(e));
       c.status = ev.has("outbound_answered") || ev.has("outbound_connected") ? "answered" : bad ? "failed" : "dialled";
     }
-    delete c.ev; return c;
+    // Recents shows talk time only (never ringing)
+    if (c.talk) c.dur = c.talk;
+    else if (c.ansAt && c.endAt && c.endAt >= c.ansAt) c.dur = Math.round((c.endAt - c.ansAt) / 1000);
+    delete c.ev; delete c.talk; delete c.ansAt; delete c.endAt; return c;
   }).sort((a, b) => b.time.localeCompare(a.time));
   cache.set("calls", calls.slice(0, 300));
   renderRecents();
@@ -892,7 +899,7 @@ document.addEventListener("paste", (e) => {
 
 // ---------- settings sheet ----------
 function closeSheet() { $("sheetWrap").classList.add("hidden"); }
-$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v2.1.2`; $("sheetWrap").classList.remove("hidden"); };
+$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v2.2`; $("sheetWrap").classList.remove("hidden"); };
 $("scrim").onclick = closeSheet; $("sheetCancel").onclick = closeSheet;
 
 // ---------- vCard import ----------
