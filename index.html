@@ -157,6 +157,23 @@
   .play svg { width:13px; height:13px; }
   .hist-audio { padding:0 18px 12px; } .hist-audio audio { width:100%; height:40px; }
 
+  /* ---------- live call bar (floats above the tab bar) ---------- */
+  .livebar { position:fixed; left:50%; width:calc(100% - 28px); max-width:520px; height:56px; z-index:21;
+    top:calc(var(--appH, 100dvh) - 64px - max(10px, calc(env(safe-area-inset-bottom) - 12px)) - 66px);
+    transform:translate(-50%, 12px); opacity:0; pointer-events:none; transition:transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s, background .3s;
+    border-radius:28px; background:var(--green); color:#fff; display:flex; align-items:center; gap:12px; padding:0 18px; box-shadow:0 8px 26px rgba(0,0,0,.28); }
+  .livebar.show { transform:translate(-50%, 0); opacity:1; pointer-events:auto; }
+  .livebar.ended { background:#636366; }
+  .livebar.failed { background:var(--red); }
+  .livebar .dot { width:10px; height:10px; border-radius:50%; background:#fff; flex:none; animation:livepulse 1.4s ease-in-out infinite; }
+  .livebar.ended .dot, .livebar.failed .dot { animation:none; opacity:.6; }
+  @keyframes livepulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.35; transform:scale(.7); } }
+  .livebar .lb-txt { flex:1; min-width:0; line-height:1.2; }
+  .livebar .lb-name { font-weight:600; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .livebar .lb-status { font-size:13px; opacity:.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .livebar .lb-time { font-variant-numeric:tabular-nums; font-weight:600; font-size:16px; flex:none; }
+  body.has-live .scroller { padding-bottom:calc(env(safe-area-inset-bottom) + 190px); }
+
   /* ---------- sheets / toast / login / splash ---------- */
   .scrim { position:fixed; top:0; left:0; right:0; height:var(--appH, 100dvh); background:rgba(0,0,0,.4); z-index:40; }
   .sheet { position:fixed; left:8px; right:8px; top:calc(var(--appH, 100dvh) - env(safe-area-inset-bottom) - 8px); transform:translateY(-100%); z-index:41; max-width:520px; margin:0 auto; }
@@ -251,6 +268,11 @@
   </section>
 
   <div class="tabfade"></div>
+  <div class="livebar" id="livebar" role="status" aria-live="polite">
+    <span class="dot"></span>
+    <div class="lb-txt"><div class="lb-name" id="lbName"></div><div class="lb-status" id="lbStatus"></div></div>
+    <span class="lb-time" id="lbTime"></span>
+  </div>
   <nav class="tabbar">
     <button data-tab="favourites"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3L2.9 9.5l6.3-.9z"/></svg>Favourites</button>
     <button data-tab="recents"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="M12 6.5V12h-4" fill="none" stroke="var(--bg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Recents</button>
@@ -388,6 +410,7 @@ async function boot() {
   if (!data.session) { cache.clear(); return; }
   cache.set("session", true);
   await loadProfile(); loadContacts(); loadRecents();
+  liveSubscribe(); liveResync();
 }
 function skeleton() { return `<div class="skeleton">${Array.from({ length: 9 }, () => `<div class="row"><div class="avatar"></div><div class="body"><div style="width:${40 + Math.random() * 35}%"></div></div></div>`).join("")}</div>`; }
 $("loginBtn").onclick = async () => {
@@ -396,7 +419,7 @@ $("loginBtn").onclick = async () => {
   boot();
 };
 $("logoutBtn").onclick = async () => {
-  closeSheet(); await sb.auth.signOut(); cache.clear();
+  closeSheet(); liveStop(); await sb.auth.signOut(); cache.clear();
   me = null; contacts = []; people = []; calls = []; byPhone = new Map();
   ["conList", "recList", "favList"].forEach((id) => ($(id).innerHTML = ""));
   showLoggedIn(false);
@@ -699,6 +722,7 @@ function dialViaExoPhone(phone, name, company, btn) {
     body: JSON.stringify({ phone, name: name || null, company: company || null }),
   }).then((r) => { if (!r.ok) toast("Call request failed", "Please tap Call again", 6000); }).catch(() => {});
   toast(`Calling ${name || fmtNum(phone)}`, "Tap Call in the iPhone prompt", 4000);
+  liveDialing(phone, name);
   location.href = "tel:0" + me.exophone;
   setTimeout(loadRecents, 20000);
 }
@@ -706,6 +730,7 @@ function dialViaExoPhone(phone, name, company, btn) {
 async function callbackCall(phone, name, company, btn) {
   if (btn) { btn.disabled = true; setTimeout(() => (btn.disabled = false), 8000); }
   toast(`Calling ${name || fmtNum(phone)}`, "Answer the call from your ExoPhone to connect", 5000);
+  liveDialing(phone, name); live.status = "Exotel is calling your phone…"; renderLive();
   // iPhone home-screen apps often drop the first request after waking up, so retry once on a network error
   let { data, error } = await sb.functions.invoke("exodial-outgoing", { body: { phone, name, company } });
   if (error?.name === "FunctionsFetchError") {
@@ -720,6 +745,109 @@ async function callbackCall(phone, name, company, btn) {
     toast("Call failed", msg, 7000);
   } else setTimeout(loadRecents, 4000);
 }
+
+// ---------- live call status (v2.1) ----------
+// Every webhook writes a row to call_logs. The app listens to new rows in real time and keeps one "live call" card.
+// Phases: dialing -> connecting -> ringing -> connected -> ended. "connected" needs an answered event from Exotel;
+// without it the timer shows time since the call started.
+const LIVE_EVENTS = {
+  incoming:              { phase: "ringing",    dir: "inbound",  status: "Incoming call" },
+  outbound_start:        { phase: "connecting", dir: "outbound", status: "Calling…" },
+  outbound_you_answered: { phase: "ringing",    dir: "outbound", status: "Ringing…" },
+  outbound_connected:    { phase: "connected",  dir: "outbound", status: "On call" },
+  connected:             { phase: "connected",  dir: "inbound",  status: "On call" },
+  answered:              { phase: "ended",      dir: "inbound",  status: "Call ended", ok: true },
+  outbound_answered:     { phase: "ended",      dir: "outbound", status: "Call ended", ok: true },
+  missed:                { phase: "ended",      dir: "inbound",  status: "Missed call" },
+  not_reached:           { phase: "ended",      dir: "inbound",  status: "Didn't reach you" },
+  "outbound_no-answer":  { phase: "ended",      dir: "outbound", status: "No answer" },
+  outbound_failed:       { phase: "ended",      dir: "outbound", status: "Couldn't reach" },
+  "outbound_no-request": { phase: "ended",      dir: "outbound", status: "No call request found" },
+};
+let live = null, liveTick = null, liveHide = null, liveChannel = null;
+const LIVE_MAX_AGE = 2 * 3600e3;   // ignore anything older than 2 hours
+const mmss = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; };
+
+function liveName(num, fallback) { return byPhone.get(num)?.name || fallback || fmtNum(num) || "Unknown"; }
+
+function renderLive() {
+  const bar = $("livebar");
+  if (!live) { bar.classList.remove("show"); document.body.classList.remove("has-live"); clearInterval(liveTick); return; }
+  bar.classList.add("show"); document.body.classList.add("has-live");
+  bar.classList.toggle("ended", live.phase === "ended" && live.ok);
+  bar.classList.toggle("failed", live.phase === "ended" && !live.ok);
+  $("lbName").textContent = live.name;
+  const arrow = live.dir === "inbound" ? "↙︎ " : "↗︎ ";
+  $("lbStatus").textContent = arrow + live.status;
+  const t = () => {
+    if (!live) return;
+    if (live.phase === "ended") $("lbTime").textContent = live.dur ? fmtDur(live.dur) : "";
+    else if (live.phase === "connected") $("lbTime").textContent = mmss(Date.now() - live.connectedAt);
+    else $("lbTime").textContent = live.startedAt ? mmss(Date.now() - live.startedAt) : "";
+  };
+  t(); clearInterval(liveTick); if (live.phase !== "ended") liveTick = setInterval(t, 1000);
+}
+
+function liveEvent(row) {
+  const def = LIVE_EVENTS[row.event]; if (!def) return;
+  const at = new Date(row.created_at || Date.now()).getTime();
+  if (Date.now() - at > LIVE_MAX_AGE) return;
+  const sid = row.call_sid || "";
+  // A new call replaces the card; events of another (older) call are ignored once it has ended
+  const sameCall = live && (live.sid === sid || (live.sid === "pending" && def.dir === "outbound" && (!row.number || row.number === live.number)));
+  if (!sameCall) {
+    if (def.phase === "ended" && live && live.phase !== "ended") return;     // stray end of an older call
+    if (def.phase === "ended" && !live) return;                               // nothing to end
+    live = { sid, dir: def.dir, number: row.number || "", startedAt: at };
+  }
+  clearTimeout(liveHide);
+  live.sid = sid || live.sid;
+  if (row.number) live.number = row.number;
+  live.name = liveName(live.number, row.contact_name || live.name);
+  live.phase = def.phase; live.status = def.status; live.ok = !!def.ok;
+  if (def.phase === "connected" && !live.connectedAt) live.connectedAt = at;
+  if (def.phase === "ended") {
+    const raw = row.raw || {};
+    live.dur = parseInt(raw.DialCallDuration || raw.ConversationDuration || row.dcd || row.cd || 0) || 0;
+    if (live.ok && live.dur) live.status = "Call ended";
+    liveHide = setTimeout(() => { live = null; renderLive(); }, 4500);
+    setTimeout(loadRecents, 1500);
+  }
+  renderLive();
+}
+
+// Right after tapping Call: show the card immediately, before Exotel reports anything
+function liveDialing(phone, name) {
+  clearTimeout(liveHide);
+  live = { sid: "pending", dir: "outbound", number: phone, name: liveName(phone, name), phase: "dialing", status: "Calling…", startedAt: Date.now() };
+  renderLive();
+  liveHide = setTimeout(() => { if (live?.sid === "pending") { live = null; renderLive(); } }, 120000); // gave up / never dialled
+}
+
+// Rebuild the card from the latest rows (app opened mid-call, or woke up from background)
+async function liveResync() {
+  const since = new Date(Date.now() - LIVE_MAX_AGE).toISOString();
+  const { data } = await sb.from("call_logs").select("call_sid, created_at, number, contact_name, event, raw")
+    .gte("created_at", since).order("created_at", { ascending: false }).limit(20);
+  if (!data?.length) return;
+  const sid = data[0].call_sid, rows = data.filter((r) => r.call_sid === sid).reverse();
+  if (rows.some((r) => LIVE_EVENTS[r.event]?.phase === "ended")) return;      // last call already finished
+  if (live?.sid !== sid) live = null;
+  rows.forEach(liveEvent);
+}
+
+function liveSubscribe() {
+  if (liveChannel) return;
+  liveChannel = sb.channel("exodial-live")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_logs" }, (p) => liveEvent(p.new))
+    .subscribe();
+}
+function liveStop() { if (liveChannel) { sb.removeChannel(liveChannel); liveChannel = null; } live = null; renderLive(); }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && liveChannel) liveResync(); });
+$("livebar").onclick = () => {
+  if (!live?.number) return;
+  const p = byPhone.get(live.number); p ? openPerson(p) : openNumber(live.number, live.name);
+};
 
 // ---------- keypad ----------
 const KEYS = [["1", ""], ["2", "ABC"], ["3", "DEF"], ["4", "GHI"], ["5", "JKL"], ["6", "MNO"], ["7", "PQRS"], ["8", "TUV"], ["9", "WXYZ"], ["*", ""], ["0", "+"], ["#", ""]];
@@ -756,7 +884,7 @@ document.addEventListener("paste", (e) => {
 
 // ---------- settings sheet ----------
 function closeSheet() { $("sheetWrap").classList.add("hidden"); }
-$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v8`; $("sheetWrap").classList.remove("hidden"); };
+$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v2.1`; $("sheetWrap").classList.remove("hidden"); };
 $("scrim").onclick = closeSheet; $("sheetCancel").onclick = closeSheet;
 
 // ---------- vCard import ----------
