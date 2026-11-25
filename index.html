@@ -33,7 +33,7 @@
     }
   }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { margin:0; background:var(--bg); color:var(--label); }
+  html, body { margin:0; background:var(--bg); color:var(--label); height:100%; overflow:hidden; overscroll-behavior:none; }
   body { font:17px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif; -webkit-font-smoothing:antialiased; overscroll-behavior-y:none; }
   button { font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
   input { font:inherit; color:var(--label); }
@@ -41,8 +41,9 @@
   .hidden { display:none !important; }
 
   /* ---------- page + sticky nav ---------- */
-  .page { min-height:100dvh; padding-bottom:calc(env(safe-area-inset-bottom) + 120px); }
-  .nav { position:sticky; top:0; z-index:10; padding-top:env(safe-area-inset-top); transition:background .2s, border-color .2s; border-bottom:.5px solid transparent; }
+  .page { height:100dvh; display:flex; flex-direction:column; }
+  .scroller { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; padding-bottom:calc(env(safe-area-inset-bottom) + 120px); }
+  .nav { position:relative; flex:none; z-index:10; padding-top:env(safe-area-inset-top); transition:background .2s, border-color .2s; border-bottom:.5px solid transparent; }
   .nav.scrolled { background:var(--bar); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%); border-bottom-color:var(--sep); }
   .navrow { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:0 16px; height:56px; }
   .navrow > :first-child { justify-self:start; } .navrow > :last-child { justify-self:end; }
@@ -81,9 +82,8 @@
   .call-btn { width:40px; height:40px; border-radius:50%; background:var(--fill); display:flex; align-items:center; justify-content:center; color:var(--green); flex:none; }
   .call-btn svg { width:18px; height:18px; }
   .call-btn:disabled { opacity:.4; }
-  .section-h { position:sticky; top:calc(env(safe-area-inset-top) + 56px); z-index:2; background:var(--bg); color:var(--label2); font-size:15px; font-weight:600; padding:12px 20px 6px; }
+  .section-h { position:sticky; top:0; z-index:2; background:var(--bg); color:var(--label2); font-size:15px; font-weight:600; padding:12px 20px 6px; }
   #conList .row { padding-right:28px; }
-  #conList .section-h { top:calc(env(safe-area-inset-top) + 104px); }
   .mycard { display:flex; align-items:center; gap:14px; padding:10px 16px 14px; }
   .mycard .avatar { width:60px; height:60px; font-size:22px; }
   .mycard .n { font-size:20px; font-weight:600; min-height:24px; }
@@ -162,8 +162,8 @@
   .sheet .note { font-size:13px; color:var(--label2); padding:14px 18px; }
   .sheet .destructive { color:var(--red); }
   .sheet .cancel { font-weight:600; }
-  .toast { position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 10px); transform:translate(-50%,-160%); transition:transform .35s cubic-bezier(.2,.8,.2,1); z-index:60; width:calc(100% - 24px); max-width:500px; background:var(--glass); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border:.5px solid var(--glassline); border-radius:22px; padding:12px 14px; display:flex; gap:12px; align-items:center; box-shadow:0 10px 30px rgba(0,0,0,.25); }
-  .toast.show { transform:translate(-50%,0); }
+  .toast { position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 10px); transform:translate(-50%, calc(-100% - env(safe-area-inset-top) - 40px)); visibility:hidden; transition:transform .35s cubic-bezier(.2,.8,.2,1), visibility 0s linear .35s; z-index:60; width:calc(100% - 24px); max-width:500px; background:var(--glass); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px); border:.5px solid var(--glassline); border-radius:22px; padding:12px 14px; display:flex; gap:12px; align-items:center; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+  .toast.show { transform:translate(-50%,0); visibility:visible; transition:transform .35s cubic-bezier(.2,.8,.2,1); }
   .toast .ic { width:38px; height:38px; border-radius:10px; flex:none; background:linear-gradient(180deg,#1fd1b2,#0a84d6); display:flex; align-items:center; justify-content:center; color:#fff; }
   .toast .ic svg { width:20px; height:20px; }
   .toast .tt { font-weight:600; font-size:15px; }
@@ -335,16 +335,24 @@ function fmtWhen(iso, long = false) {
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "2-digit" }) + (long ? ` · ${time}` : "");
 }
 
-// ---------- sticky nav: blur bar once the large title scrolls away ----------
+// ---------- pinned top bar: each tab scrolls inside its own area (like iOS) ----------
+document.querySelectorAll("section.page").forEach((sec) => {
+  const sc = document.createElement("div"); sc.className = "scroller";
+  [...sec.children].forEach((ch) => { if (!ch.classList.contains("nav") && !ch.classList.contains("az")) sc.appendChild(ch); });
+  sec.insertBefore(sc, sec.querySelector(".az")); sec._scroller = sc;
+});
+const activeScroller = () => document.querySelector("section.page:not(.hidden)")?._scroller;
+
+// ---------- top bar: blur once the large title scrolls away ----------
 function watchNav(section) {
   const nav = section.querySelector(".nav"), lt = section.querySelector(".large-title");
   if (!nav) return;
   const update = () => {
     if (section.classList.contains("hidden")) return;
     const limit = lt ? lt.getBoundingClientRect().bottom : 999;
-    nav.classList.toggle("scrolled", lt ? limit < nav.getBoundingClientRect().bottom + 2 : window.scrollY > 4);
+    nav.classList.toggle("scrolled", lt ? limit < nav.getBoundingClientRect().bottom + 2 : section._scroller.scrollTop > 4);
   };
-  window.addEventListener("scroll", update, { passive: true }); section._navUpdate = update;
+  section._scroller.addEventListener("scroll", update, { passive: true }); section._navUpdate = update;
 }
 document.querySelectorAll("section.page").forEach(watchNav);
 
@@ -387,7 +395,7 @@ function goTab(tab) {
   document.querySelectorAll(".tabbar button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
   ["favourites", "recents", "contacts", "keypad"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== tab));
   $("az").classList.toggle("hidden", tab !== "contacts" || !!$("conSearch").value);
-  window.scrollTo(0, 0);
+  const sc = activeScroller(); if (sc) sc.scrollTop = 0;
   document.querySelectorAll("section.page").forEach((s) => s._navUpdate && s._navUpdate());
   if (tab === "recents") loadRecents();
 }
@@ -462,7 +470,7 @@ function azJump(e) {
   const t = e.touches ? document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY) : e.target;
   const l = t?.dataset?.l; if (!l) return;
   const order = "ABCDEFGHIJKLMNOPQRSTUVWXYZ#";
-  for (let i = order.indexOf(l); i < order.length; i++) { const s = $("sec-" + order[i]); if (s) { window.scrollTo(0, s.offsetTop - 140); break; } }
+  for (let i = order.indexOf(l); i < order.length; i++) { const s = $("sec-" + order[i]); if (s) { $("tab-contacts")._scroller.scrollTop = s.offsetTop; break; } }
   e.preventDefault();
 }
 ["click", "touchmove", "touchstart"].forEach((ev) => $("az").addEventListener(ev, azJump, { passive: false }));
