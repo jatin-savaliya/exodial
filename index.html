@@ -42,6 +42,8 @@
 
   /* ---------- page + sticky nav ---------- */
   /* each tab is pinned to the real screen edges; only its .scroller scrolls */
+  /* give the document a real full-screen height (like the Keypad tab), otherwise iPhone clips fixed layers above the home-indicator area */
+  #appView { min-height:var(--appH, 100dvh); }
   /* --appH = real screen height (set in JS). iPhone home-screen apps report a short viewport, so nothing is anchored to "bottom" */
   .page { position:fixed; top:0; left:0; right:0; height:var(--appH, 100dvh); display:flex; flex-direction:column; z-index:0; }
   .scroller { flex:1; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; position:relative; padding-bottom:calc(env(safe-area-inset-bottom) + 120px); }
@@ -754,7 +756,7 @@ document.addEventListener("paste", (e) => {
 
 // ---------- settings sheet ----------
 function closeSheet() { $("sheetWrap").classList.add("hidden"); }
-$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers`; $("sheetWrap").classList.remove("hidden"); };
+$("settingsBtn").onclick = () => { $("sheetNote").textContent = `${people.length} contacts · ${contacts.length} numbers · ExoDial v8`; $("sheetWrap").classList.remove("hidden"); };
 $("scrim").onclick = closeSheet; $("sheetCancel").onclick = closeSheet;
 
 // ---------- vCard import ----------
